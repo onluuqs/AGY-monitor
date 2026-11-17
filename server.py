@@ -24,7 +24,7 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-SERVER_VERSION = "2.2.0"
+SERVER_VERSION = "2.2.1"
 
 AGY_ROOT = os.path.join(os.path.expanduser("~"), ".gemini", "antigravity"), ".gemini", "antigravity")
 BRAIN_DIR = os.path.join(AGY_ROOT, "brain")
@@ -1033,9 +1033,9 @@ def get_conversation_detail(conv_id):
                     pass
 
         content = step.get("content") or ""
-        if "<USER_SETTINGS_CHANGE>" in content:
+        if s_type == "USER_INPUT" and "<USER_SETTINGS_CHANGE>" in content:
             mm = MODEL_SEL_RE.search(content)
-            if mm:
+            if mm and len(mm.group(1).strip()) < 64:
                 model_name = mm.group(1).strip()
 
         next_ts = None
@@ -1505,6 +1505,12 @@ def get_conversation_detail(conv_id):
             "latest_input_tokens": latest_input_tokens,
             "latest_output_tokens": latest_output_tokens,
             "cache_hit_pct": round(latest_cache_ratio, 1),
+            "cumulative_cache_hit_pct": round(
+                (total_cache_tokens * 100.0 / (total_input_tokens + total_cache_tokens))
+                if (total_input_tokens + total_cache_tokens) > 0
+                else 0.0,
+                1,
+            ),
             "transcript_bytes": st.st_size,
             "transcript_full_bytes": full_bytes,
             "active_text_bytes": active_text_bytes,
@@ -1608,6 +1614,7 @@ class MonitorHandler(BaseHTTPRequestHandler):
                 }
             )
             return
+
         self._send_json({"error": "Not found"}, status=404)
 
 

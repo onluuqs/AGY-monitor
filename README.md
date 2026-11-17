@@ -6,7 +6,7 @@
 
 **专为 Google Antigravity (AGY) 打造的零依赖、零上下文开销、全中文实时任务进度、高精度 ETA 与 Token 监控面板**
 
-[![Release](https://img.shields.io/badge/Release-v2.2.0-38bdf8?style=flat-square&logo=github)](https://github.com/onluuqs/AGY-monitor/releases/latest)
+[![Release](https://img.shields.io/badge/Release-v2.2.1-38bdf8?style=flat-square&logo=github)](https://github.com/onluuqs/AGY-monitor/releases/latest)
 [![Python](https://img.shields.io/badge/Python-3.9%2B%20%7C%20零第三方依赖-10b981?style=flat-square&logo=python&logoColor=white)](#)
 [![Token Overhead](https://img.shields.io/badge/MCP%20自启守护-0%20Token%20上下文开销-8b5cf6?style=flat-square)](#%EF%B8%8F-架构设计与隐私安全)
 [![Privacy](https://img.shields.io/badge/安全边界-100%25%20本地只读%20%7C%20零联网上传-f59e0b?style=flat-square)](#%EF%B8%8F-架构设计与隐私安全)
@@ -71,7 +71,7 @@
 
 ### 方式一：下载 Release 压缩包双击一键安装（最推荐 · 小白零配置）
 
-1. 前往 [**Releases 页面**](https://github.com/onluuqs/AGY-monitor/releases/latest) 下载最新的 **`AGY-monitor-v2.2.0.zip`** 并完整解压；
+1. 前往 [**Releases 页面**](https://github.com/onluuqs/AGY-monitor/releases/latest) 下载最新的 **`AGY-monitor-v2.2.1.zip`** 并完整解压；
 2. 根据系统执行一键安装脚本：
    - **Windows**：直接双击运行 **`一键安装到AGY(Windows).bat`**；
    - **macOS / Linux**：在解压目录打开终端执行：
@@ -146,7 +146,7 @@ flowchart LR
 AGY-monitor/
 ├── plugin.json                  # Antigravity 原生插件清单
 ├── mcp_config.json              # 零 Token 随端自启动守护配置
-├── server.py                    # 零依赖 Python 标准库监控后端 (v2.2.0)
+├── server.py                    # 零依赖 Python 标准库监控后端 (v2.2.1)
 ├── index.html                   # 全中文双主题实时可视化单页前端 (内嵌原生 SVG 引擎)
 ├── run_mcp.cmd                  # Windows 免配置 Python/Conda 自动寻路包装器
 ├── start_monitor.bat            # 独立双击启动脚本（无需打开 AGY 也可随时浏览）

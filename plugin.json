@@ -1,7 +1,7 @@
 {
   "name": "ag-monitor",
   "displayName": "AGY 实时运行监控台",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "随 Antigravity 自动启动本地全中文任务进度、高精度 ETA、上下文窗口与 Token 实时监控台 (http://127.0.0.1:8765)。",
   "logo": "logo.svg"
 }

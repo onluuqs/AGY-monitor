@@ -4,7 +4,7 @@ setlocal EnableDelayedExpansion
 title AGY 实时运行监控台 - 一键安装向导
 
 echo ========================================================
-echo   AGY-monitor 实时运行与任务监控台 (v2.2.0) 一键安装
+echo   AGY-monitor 实时运行与任务监控台 (v2.2.1) 一键安装
 echo ========================================================
 echo.
 

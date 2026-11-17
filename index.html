@@ -650,7 +650,13 @@
       $("ctxPctText").textContent = `/ ${fmtK(cap)} (${ctxPct.toFixed(1)}%)`;
       $("ctxBar").style.width = `${ctxPct.toFixed(1)}%`;
       $("ctxBar").className = barClass(ctxPct);
-      $("cacheBadge").textContent = `缓存命中 ${d.context.cache_hit_pct.toFixed(1)}%`;
+      const cumCachePct = d.context.cumulative_cache_hit_pct ?? d.context.cache_hit_pct ?? 0;
+      const stepCachePct = d.context.cache_hit_pct ?? 0;
+      $("cacheBadge").textContent = `缓存 累计 ${cumCachePct.toFixed(1)}% · 本步 ${stepCachePct.toFixed(1)}%`;
+      $("cacheBadge").title =
+        stepCachePct === 0 && cumCachePct > 0
+          ? `全会话累计命中率 ${cumCachePct.toFixed(1)}%（本步为闲置后缓存冷启动重建，下一步自动恢复高命中）`
+          : `全会话累计命中率 ${cumCachePct.toFixed(1)}% | 最新单步瞬时命中率 ${stepCachePct.toFixed(1)}%`;
 
       const payloadBytes = d.context.estimated_payload_bytes ?? d.context.transcript_full_bytes ?? 0;
       const mbUsed = payloadBytes / (1024 * 1024);
