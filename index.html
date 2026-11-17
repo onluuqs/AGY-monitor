@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AGY 实时运行与任务监控台</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --bg-grad: radial-gradient(1200px 600px at 15% -10%, rgba(56, 189, 248, 0.14), transparent 60%),
+                 radial-gradient(1000px 500px at 90% 0%, rgba(139, 92, 246, 0.13), transparent 55%),
+                 #0b1020;
+      --card: rgba(19, 27, 46, 0.86);
+      --card-hover: rgba(25, 35, 58, 0.95);
+      --border: rgba(148, 163, 184, 0.16);
+      --border-strong: rgba(56, 189, 248, 0.45);
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --subtle: #64748b;
+      --accent: #38bdf8;
+      --accent-2: #818cf8;
+      --green: #10b981;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --code-bg: rgba(9, 13, 24, 0.85);
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.32);
+    }
+    html.light {
+      --bg: #f1f5f9;
+      --bg-grad: linear-gradient(180deg, #eef2ff 0%, #f8fafc 320px, #f1f5f9 100%);
+      --card: rgba(255, 255, 255, 0.92);
+      --card-hover: #ffffff;
+      --border: rgba(15, 23, 42, 0.10);
+      --border-strong: rgba(2, 132, 199, 0.45);
+      --text: #0f172a;
+      --muted: #475569;
+      --subtle: #64748b;
+      --accent: #0284c7;
+      --accent-2: #4f46e5;
+      --green: #059669;
+      --amber: #d97706;
+      --red: #dc2626;
+      --code-bg: #0f172a;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Microsoft YaHei UI", "PingFang SC", "Segoe UI", sans-serif;
+      background: var(--bg-grad);
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 18px 22px 36px;
+      line-height: 1.5;
+    }
+    .mono {
+      font-family: "JetBrains Mono", "Cascadia Mono", Consolas, "Courier New", monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .container { max-width: 1440px; margin: 0 auto; }
+
+    /* 顶栏 */
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      margin-bottom: 16px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .pulse-dot {
+      width: 11px; height: 11px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: pulse 2s infinite;
+    }
+    .pulse-dot.busy {
+      background: var(--accent);
+      box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.75);
+      animation: pulse-fast 1.1s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.65); }
+      70% { box-shadow: 0 0 0 9px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    @keyframes pulse-fast {
+      0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.75); }
+      70% { box-shadow: 0 0 0 10px rgba(56, 189, 248, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+    }
+    .brand-title { font-size: 18px; font-weight: 700; letter-spacing: 0.3px; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 12px; font-weight: 600;
+      padding: 3px 10px; border-radius: 999px;
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+    }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    select, button {
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text);
+      background: rgba(148, 163, 184, 0.10);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    select { max-width: 360px; }
+    select option { background: #0f172a; color: #f1f5f9; }
+    html.light select option { background: #ffffff; color: #0f172a; }
+    button:hover, select:hover { border-color: var(--accent); }
+    button.active {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* 4 列核心指标卡 */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 1150px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 640px) { .kpi-grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .card.highlight { border-color: var(--border-strong); }
+    .card-label {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 13px; color: var(--muted); font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .kpi-main {
+      font-size: 27px; font-weight: 700; line-height: 1.2;
+      margin-bottom: 6px;
+      display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    }
+    .kpi-sub { font-size: 12.5px; color: var(--muted); }
+    .kpi-row {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12.5px; color: var(--muted);
+      margin-top: 6px;
+    }
+    .kpi-row strong { color: var(--text); font-weight: 600; }
+
+    /* 进度条 */
+    .bar-wrap {
+      width: 100%; height: 8px;
+      background: rgba(148, 163, 184, 0.16);
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 7px 0 4px;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      transition: width 0.35s ease;
+      background: linear-gradient(90deg, var(--green), var(--accent));
+    }
+    .bar-fill.warn { background: linear-gradient(90deg, var(--amber), #f97316); }
+    .bar-fill.danger { background: linear-gradient(90deg, #f97316, var(--red)); }
+    .bar-fill.indeterminate {
+      width: 38% !important;
+      background: linear-gradient(90deg, transparent, var(--accent), var(--accent-2), transparent);
+      animation: slide 1.4s infinite ease-in-out;
+    }
+    @keyframes slide {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(280%); }
+    }
+
+    /* 状态胶囊 */
+    .pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 12px; font-weight: 600;
+      padding: 2px 9px; border-radius: 999px;
+    }
+    .pill-run { background: rgba(56, 189, 248, 0.18); color: var(--accent); border: 1px solid rgba(56, 189, 248, 0.35); }
+    .pill-ok { background: rgba(16, 185, 129, 0.16); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.32); }
+    .pill-warn { background: rgba(245, 158, 11, 0.16); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.32); }
+    .pill-err { background: rgba(239, 68, 68, 0.16); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.32); }
+    .pill-idle { background: rgba(148, 163, 184, 0.14); color: var(--muted); border: 1px solid var(--border); }
+
+    /* 区块标题 */
+    .section { margin-bottom: 16px; }
+    .section-hdr {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 12px;
+    }
+    .section-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+
+    /* 后台任务卡片 */
+    .task-list { display: flex; flex-direction: column; gap: 12px; }
+    .task-item {
+      background: rgba(148, 163, 184, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+    }
+    .task-item.running {
+      border-color: var(--border-strong);
+      background: rgba(56, 189, 248, 0.06);
+    }
+    .task-top {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px;
+      margin-bottom: 10px;
+    }
+    .task-name { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .task-metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.25);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    html.light .task-metrics { background: rgba(15, 23, 42, 0.04); }
+    @media (max-width: 760px) { .task-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    .tm-box .tm-lbl { font-size: 12px; color: var(--muted); }
+    .tm-box .tm-val { font-size: 17px; font-weight: 700; margin-top: 2px; }
+    .task-cmd {
+      font-size: 12px; color: var(--muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 6px;
+    }
+    .log-box {
+      margin-top: 8px;
+      background: var(--code-bg);
+      color: #cbd5e1;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 12px;
+      max-height: 190px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      border: 1px solid rgba(148, 163, 184, 0.18);
+    }
+    details summary {
+      font-size: 12.5px; color: var(--accent); cursor: pointer; user-select: none;
+      margin-top: 6px; font-weight: 600;
+    }
+
+    /* 图表双栏 */
+    .chart-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 960px) { .chart-grid { grid-template-columns: 1fr; } }
+    .svg-wrap { width: 100%; height: 175px; }
+
+    /* 步骤时间轴表 */
+    .table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td {
+      text-align: left;
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      position: sticky; top: 0;
+      background: var(--card);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 12px;
+      z-index: 1;
+    }
+    tr:hover td { background: rgba(148, 163, 184, 0.06); }
+    .empty-tip {
+      text-align: center; color: var(--muted); font-size: 13.5px;
+      padding: 20px 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 顶栏 -->
+    <header class="topbar">
+      <div class="brand">
+        <span id="pulseDot" class="pulse-dot"></span>
+        <div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="brand-title">AGY 实时运行与任务监控台</span>
+            <span id="modelBadge" class="badge">加载模型中...</span>
+          </div>
+          <div id="convSubtitle" style="font-size:12px; color:var(--muted); margin-top:2px;">正在连接本地会话目录...</div>
+        </div>
+      </div>
+      <div class="controls">
+        <select id="convSelect" title="切换查看的会话"></select>
+        <button id="autoBtn" class="active" title="自动切换到最新有活动的对话">自动跟随活跃会话：开</button>
+        <select id="ctxCapSelect" title="上下文进度条参考上限">
+          <option value="200000">上下文参考上限: 200K</option>
+          <option value="256000">上下文参考上限: 256K (自动压缩线)</option>
+          <option value="1000000" selected>上下文参考上限: 1,000K (1M)</option>
+        </select>
+        <button id="themeBtn">浅色/深色</button>
+      </div>
+    </header>
+
+    <!-- 四大核心实时卡片 -->
+    <section class="kpi-grid">
+      <!-- 1. 当前状态与耗时 -->
+      <div id="stateCard" class="card">
+        <div class="card-label">
+          <span>当前运行状态 & 实时计时</span>
+          <span id="liveBadge" class="pill pill-idle">待命</span>
+        </div>
+        <div class="kpi-main">
+          <span id="liveTimer" class="mono">00:00</span>
+          <span id="liveStateText" style="font-size:15px; font-weight:600;">空闲待命</span>
+        </div>
+        <div id="liveDetail" class="kpi-sub" style="min-height:19px;">等待新的指令输入</div>
+        <div class="kpi-row" style="margin-top:10px;">
+          <span>本轮对话已进行</span>
+          <strong id="turnElapsed" class="mono">00:00</strong>
+        </div>
+        <div class="kpi-row">
+          <span>会话交互轮数 / 总步数</span>
+          <strong id="turnSteps" class="mono">0 轮 / 0 步</strong>
+        </div>
+      </div>
+
+      <!-- 2. 上下文与载荷红线 -->
+      <div class="card">
+        <div class="card-label">
+          <span>上下文窗口 & 载荷健康度</span>
+          <span id="cacheBadge" class="pill pill-ok">缓存 0%</span>
+        </div>
+        <div class="kpi-main">
+          <span id="ctxTokens" class="mono">0</span>
+          <span id="ctxPctText" style="font-size:14px; color:var(--muted);" class="mono">/ 1,000K (0.0%)</span>
+        </div>
+        <div class="bar-wrap"><div id="ctxBar" class="bar-fill" style="width:0%"></div></div>
+        <div class="kpi-row" style="margin-top:9px;">
+          <span>单次请求 30 MB 红线占比</span>
+          <strong id="payloadText" class="mono">0.00 MB / 30 MB (0.0%)</strong>
+        </div>
+        <div class="bar-wrap" style="height:6px;"><div id="payloadBar" class="bar-fill" style="width:0%"></div></div>
+      </div>
+
+      <!-- 3. Token 统计 -->
+      <div class="card">
+        <div class="card-label">
+          <span>会话累计 Token 明细</span>
+          <span class="pill pill-idle">实时累计</span>
+        </div>
+        <div class="kpi-main">
+          <span id="totalBilledTok" class="mono">0</span>
+          <span style="font-size:13px; color:var(--muted);">净输入+输出</span>
+        </div>
+        <div class="kpi-row">
+          <span>新增输入 (Uncached In)</span>
+          <strong id="uncachedInTok" class="mono">0</strong>
+        </div>
+        <div class="kpi-row">
+          <span>缓存命中读取 (Cache Read)</span>
+          <strong id="cacheReadTok" class="mono">0</strong>
+        </div>
+        <div class="kpi-row">
+          <span>模型生成输出 (Output)</span>
+          <strong id="outputTok" class="mono">0</strong>
+        </div>
+      </div>
+
+      <!-- 4. 速度与响应耗时 -->
+      <div class="card">
+        <div class="card-label">
+          <span>模型生成速度 & 响应耗时</span>
+          <span id="plannerCountBadge" class="pill pill-idle">0 次推理</span>
+        </div>
+        <div class="kpi-main">
+          <span id="lastSpeed" class="mono">--</span>
+          <span style="font-size:14px; color:var(--muted);">tok/s (最新)</span>
+        </div>
+        <div class="kpi-row">
+          <span>平均生成速度 / 峰值速度</span>
+          <strong id="avgPeakSpeed" class="mono">-- / -- tok/s</strong>
+        </div>
+        <div class="kpi-row">
+          <span>平均单步推理耗时</span>
+          <strong id="avgStepDur" class="mono">-- 秒</strong>
+        </div>
+        <div class="kpi-row">
+          <span>最近一步 输出 / 新增输入</span>
+          <strong id="lastStepIo" class="mono">0 / 0</strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- 后台任务实时进度与预计剩余时间专区 -->
+    <section class="card section" id="bgSection">
+      <div class="section-hdr">
+        <div class="section-title">
+          <span>后台任务运行时间与预计剩余时间 (ETA)</span>
+          <span id="bgCountBadge" class="pill pill-idle">0 个运行中</span>
+        </div>
+        <span style="font-size:12px; color:var(--muted);">自动识别 tqdm / Epoch / 步数比例并动态推算预计完成时间</span>
+      </div>
+      <div id="bgTaskList" class="task-list">
+        <div class="empty-tip">当前会话暂无后台长耗时任务（当命令转入后台运行时，此处将实时显示已运行时间、进度条与预计剩余时间）</div>
+      </div>
+    </section>
+
+    <!-- 子智能体专区（有子智能体时展示） -->
+    <section class="card section" id="subSection" style="display:none;">
+      <div class="section-hdr">
+        <div class="section-title">
+          <span>并行子智能体 (Subagents) 进度</span>
+          <span id="subCountBadge" class="pill pill-run">0</span>
+        </div>
+      </div>
+      <div id="subList" class="task-list"></div>
+    </section>
+
+    <!-- 双栏趋势图 -->
+    <section class="chart-grid">
+      <div class="card">
+        <div class="card-label">
+          <span>上下文窗口增长趋势 (Tokens · 蓝=总上下文 / 绿=缓存命中)</span>
+          <span id="ctxChartSummary" class="mono" style="font-size:12px;"></span>
+        </div>
+        <div id="ctxChart" class="svg-wrap"></div>
+      </div>
+      <div class="card">
+        <div class="card-label">
+          <span>各步生成速度 (tok/s) 与推理耗时趋势</span>
+          <span id="spdChartSummary" class="mono" style="font-size:12px;"></span>
+        </div>
+        <div id="spdChart" class="svg-wrap"></div>
+      </div>
+    </section>
+
+    <!-- 最近执行步骤时间轴 -->
+    <section class="card section">
+      <div class="section-hdr">
+        <div class="section-title">最近步骤耗时与 Token 执行时间轴（最新置顶）</div>
+        <span id="syncClock" class="mono" style="font-size:12px; color:var(--muted);">--:--:--</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:66px;">步号</th>
+              <th style="width:92px;">时间</th>
+              <th style="width:130px;">阶段类型</th>
+              <th>执行内容摘要</th>
+              <th style="width:90px;">单步耗时</th>
+              <th style="width:110px;">上下文 Token</th>
+              <th style="width:95px;">输出 Token</th>
+              <th style="width:95px;">生成速度</th>
+            </tr>
+          </thead>
+          <tbody id="timelineBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    let autoFollow = true;
+    let selectedConvId = "";
+    let lastSnapshot = null;
+    let lastFetchClientMs = Date.now();
+    const openDetailsSet = new Set();
+
+    const $ = (id) => document.getElementById(id);
+
+    function fmtInt(n) {
+      if (n === null || n === undefined || isNaN(n)) return "--";
+      return Math.round(n).toLocaleString("zh-CN");
+    }
+    function fmtK(n) {
+      if (n === null || n === undefined || isNaN(n)) return "--";
+      if (n >= 1000000) return (n / 1000000).toFixed(2) + "M";
+      if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+      return String(Math.round(n));
+    }
+    function fmtDuration(sec) {
+      if (sec === null || sec === undefined || isNaN(sec)) return "--";
+      const s = Math.max(0, Math.floor(sec));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const r = s % 60;
+      const pad = (x) => String(x).padStart(2, "0");
+      if (h > 0) return `${h}时${pad(m)}分${pad(r)}秒`;
+      if (m > 0) return `${pad(m)}分${pad(r)}秒`;
+      return `${r}秒`;
+    }
+    function fmtClock(sec) {
+      if (sec === null || sec === undefined || isNaN(sec)) return "00:00";
+      const s = Math.max(0, Math.floor(sec));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const r = s % 60;
+      const pad = (x) => String(x).padStart(2, "0");
+      return h > 0 ? `${pad(h)}:${pad(m)}:${pad(r)}` : `${pad(m)}:${pad(r)}`;
+    }
+    function fmtTimeOfDay(tsSec) {
+      if (!tsSec) return "--:--:--";
+      const d = new Date(tsSec * 1000);
+      return d.toLocaleTimeString("zh-CN", { hour12: false });
+    }
+    function escHtml(s) {
+      return String(s || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+    function barClass(pct) {
+      if (pct >= 85) return "bar-fill danger";
+      if (pct >= 70) return "bar-fill warn";
+      return "bar-fill";
+    }
+
+    // 控件事件
+    $("autoBtn").addEventListener("click", () => {
+      autoFollow = !autoFollow;
+      $("autoBtn").className = autoFollow ? "active" : "";
+      $("autoBtn").textContent = `自动跟随活跃会话：${autoFollow ? "开" : "关"}`;
+      fetchOverview();
+    });
+
+    $("convSelect").addEventListener("change", (e) => {
+      selectedConvId = e.target.value;
+      autoFollow = false;
+      $("autoBtn").className = "";
+      $("autoBtn").textContent = "自动跟随活跃会话：关";
+      fetchOverview();
+    });
+
+    $("ctxCapSelect").addEventListener("change", () => {
+      if (lastSnapshot) renderDetail(lastSnapshot, 0);
+    });
+
+    $("themeBtn").addEventListener("click", () => {
+      document.documentElement.classList.toggle("light");
+    });
+
+    function renderSparkArea(containerId, items, valFn, subValFn, unitLabel) {
+      const el = $(containerId);
+      if (!items || items.length === 0) {
+        el.innerHTML = `<div class="empty-tip">暂无推理步骤数据</div>`;
+        return;
+      }
+      const W = 620, H = 165, padL = 46, padR = 14, padT = 14, padB = 24;
+      const vals = items.map((d) => valFn(d) || 0);
+      const maxV = Math.max(...vals, 1);
+      const plotW = W - padL - padR;
+      const plotH = H - padT - padB;
+      const xAt = (i) => padL + (items.length === 1 ? plotW / 2 : (i * plotW) / (items.length - 1));
+      const yAt = (v) => padT + plotH - (Math.max(0, v) / maxV) * plotH;
+
+      const pts = vals.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ");
+      const areaPts = `${xAt(0).toFixed(1)},${(padT + plotH).toFixed(1)} ${pts} ${xAt(vals.length - 1).toFixed(1)},${(padT + plotH).toFixed(1)}`;
+
+      let subSvg = "";
+      if (subValFn) {
+        const svals = items.map((d) => subValFn(d) || 0);
+        const spts = svals.map((v, i) => `${xAt(i).toFixed(1)},${yAt(v).toFixed(1)}`).join(" ");
+        const sarea = `${xAt(0).toFixed(1)},${(padT + plotH).toFixed(1)} ${spts} ${xAt(svals.length - 1).toFixed(1)},${(padT + plotH).toFixed(1)}`;
+        subSvg = `<polygon points="${sarea}" fill="rgba(16,185,129,0.20)" />
+                  <polyline points="${spts}" fill="none" stroke="#10b981" stroke-width="1.8" stroke-dasharray="3,2" />`;
+      }
+
+      const circles = vals
+        .map((v, i) => {
+          const stepIdx = items[i].step_index;
+          return `<circle cx="${xAt(i).toFixed(1)}" cy="${yAt(v).toFixed(1)}" r="3" fill="#38bdf8">
+                    <title>步 #${stepIdx}: ${fmtInt(v)} ${unitLabel}</title>
+                  </circle>`;
+        })
+        .join("");
+
+      el.innerHTML = `
+        <svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" preserveAspectRatio="none">
+          <line x1="${padL}" y1="${padT}" x2="${W - padR}" y2="${padT}" stroke="rgba(148,163,184,0.16)" />
+          <line x1="${padL}" y1="${padT + plotH / 2}" x2="${W - padR}" y2="${padT + plotH / 2}" stroke="rgba(148,163,184,0.12)" stroke-dasharray="4,4" />
+          <line x1="${padL}" y1="${padT + plotH}" x2="${W - padR}" y2="${padT + plotH}" stroke="rgba(148,163,184,0.25)" />
+          <text x="${padL - 6}" y="${padT + 4}" text-anchor="end" font-size="11" fill="#94a3b8">${fmtK(maxV)}</text>
+          <text x="${padL - 6}" y="${padT + plotH / 2 + 4}" text-anchor="end" font-size="11" fill="#94a3b8">${fmtK(maxV / 2)}</text>
+          <text x="${padL - 6}" y="${padT + plotH + 4}" text-anchor="end" font-size="11" fill="#94a3b8">0</text>
+          <polygon points="${areaPts}" fill="rgba(56,189,248,0.18)" />
+          ${subSvg}
+          <polyline points="${pts}" fill="none" stroke="#38bdf8" stroke-width="2.3" />
+          ${circles}
+          <text x="${padL}" y="${H - 5}" font-size="11" fill="#94a3b8">步 #${items[0].step_index}</text>
+          <text x="${W - padR}" y="${H - 5}" text-anchor="end" font-size="11" fill="#94a3b8">步 #${items[items.length - 1].step_index}</text>
+        </svg>`;
+    }
+
+    function renderDetail(d, extraSec) {
+      if (!d || d.error) return;
+      $("modelBadge").textContent = d.model || "Gemini";
+      $("convSubtitle").textContent = `当前监控会话: ${d.title} (${d.conversation_id.slice(0, 8)})`;
+
+      // 1. 实时状态与计时
+      const isBusy = d.live.state !== "IDLE";
+      $("pulseDot").className = isBusy ? "pulse-dot busy" : "pulse-dot";
+      $("stateCard").className = isBusy ? "card highlight" : "card";
+
+      const liveSec = isBusy ? d.live.elapsed_sec + extraSec : 0;
+      const turnSec = isBusy ? d.live.current_turn_elapsed_sec + extraSec : d.session_span_sec;
+      $("liveTimer").textContent = isBusy ? fmtClock(liveSec) : "待命";
+      $("liveStateText").textContent = d.live.state_cn;
+      $("liveDetail").textContent = d.live.detail;
+      $("turnElapsed").textContent = isBusy ? fmtDuration(turnSec) : `总跨度 ${fmtDuration(d.session_span_sec)}`;
+      $("turnSteps").textContent = `${d.turn_count} 轮 / ${d.step_count} 步`;
+
+      const badgeMap = {
+        THINKING: ["思考中", "pill pill-run"],
+        TOOL_RUNNING: ["执行工具", "pill pill-run"],
+        BG_RUNNING: ["后台运行", "pill pill-warn"],
+        IDLE: ["空闲", "pill pill-idle"],
+      };
+      const [bTxt, bCls] = badgeMap[d.live.state] || ["运行中", "pill pill-run"];
+      $("liveBadge").textContent = bTxt;
+      $("liveBadge").className = bCls;
+
+      // 2. 上下文与 30 MB 红线
+      const cap = Number($("ctxCapSelect").value || 1000000);
+      const ctxTok = d.context.current_tokens || 0;
+      const ctxPct = Math.min(100, (ctxTok * 100) / cap);
+      $("ctxTokens").textContent = fmtK(ctxTok);
+      $("ctxPctText").textContent = `/ ${fmtK(cap)} (${ctxPct.toFixed(1)}%)`;
+      $("ctxBar").style.width = `${ctxPct.toFixed(1)}%`;
+      $("ctxBar").className = barClass(ctxPct);
+      $("cacheBadge").textContent = `缓存命中 ${d.context.cache_hit_pct.toFixed(1)}%`;
+
+      const payloadBytes = d.context.estimated_payload_bytes ?? d.context.transcript_full_bytes ?? 0;
+      const mbUsed = payloadBytes / (1024 * 1024);
+      const mbPct = Math.min(100, d.context.payload_pct_30mb || 0);
+      const mediaCnt = d.context.media_count || 0;
+      const mediaMb = ((d.context.media_b64_bytes || 0) / (1024 * 1024)).toFixed(1);
+      const extraTag = mediaCnt > 0 ? ` [含${mediaCnt}图 ${mediaMb}MB]` : "";
+      $("payloadText").textContent = `${mbUsed.toFixed(2)} / 30 MB (${mbPct.toFixed(1)}%)${extraTag}`;
+      $("payloadBar").style.width = `${mbPct.toFixed(1)}%`;
+      $("payloadBar").className = barClass(mbPct);
+
+      // 3. Token 明细
+      $("totalBilledTok").textContent = fmtK(d.tokens.total_billed_io);
+      $("uncachedInTok").textContent = fmtInt(d.tokens.total_uncached_input);
+      $("cacheReadTok").textContent = fmtInt(d.tokens.total_cache_read);
+      $("outputTok").textContent = fmtInt(d.tokens.total_output);
+
+      // 4. 速度与响应耗时
+      $("plannerCountBadge").textContent = `${d.speed.planner_calls} 次推理`;
+      $("lastSpeed").textContent = d.speed.last_tok_per_sec !== null ? d.speed.last_tok_per_sec : "--";
+      $("avgPeakSpeed").textContent = `${d.speed.avg_tok_per_sec ?? "--"} / ${d.speed.peak_tok_per_sec ?? "--"} tok/s`;
+      $("avgStepDur").textContent = d.speed.avg_step_duration_sec !== null ? `${d.speed.avg_step_duration_sec} 秒` : "-- 秒";
+      $("lastStepIo").textContent = `${fmtInt(d.context.latest_output_tokens)} / ${fmtInt(d.context.latest_input_tokens)}`;
+
+      // 5. 后台任务列表（仅在全量刷新即 extraSec === 0 时重建 DOM，每秒跳表只更新数字避免折叠闪动）
+      $("bgCountBadge").textContent = `${d.running_bg_count} 个运行中 / 共 ${d.background_tasks.length} 个`;
+      $("bgCountBadge").className = d.running_bg_count > 0 ? "pill pill-run" : "pill pill-idle";
+
+      if (extraSec === 0) {
+        if (!d.background_tasks || d.background_tasks.length === 0) {
+          $("bgTaskList").innerHTML = `<div class="empty-tip">当前会话暂无后台长耗时任务（当训练、数据提取或长脚本转入后台运行时，此处会自动弹出实时计时与预计剩余时间卡片）</div>`;
+        } else {
+          $("bgTaskList").innerHTML = d.background_tasks
+            .map((t) => {
+              const p = t.progress;
+              const hasPct = p && p.percent !== null && p.percent !== undefined;
+              const pctVal = hasPct ? p.percent : t.is_running ? 100 : 100;
+              const barCls = t.is_running
+                ? t.is_daemon || hasPct
+                  ? "bar-fill"
+                  : "bar-fill indeterminate"
+                : t.status === "FAILED"
+                ? "bar-fill danger"
+                : "bar-fill";
+              const pillCls = t.is_running
+                ? "pill pill-run"
+                : t.status === "FAILED"
+                ? "pill pill-err"
+                : "pill pill-ok";
+              const etaStr = t.is_running
+                ? t.is_daemon
+                  ? "常驻守护服务"
+                  : t.eta_sec !== null && t.eta_sec !== undefined
+                  ? `${fmtDuration(t.eta_sec)} (约 ${fmtTimeOfDay(t.eta_finish_ts)})`
+                  : "暂无步数输出"
+                : "已结束";
+              const hasSlashInRate = p && p.rate && String(p.rate).includes("/");
+              const progStr = t.is_daemon && t.is_running
+                ? "持续监听在线"
+                : hasPct
+                ? `${p.percent}%${p.current !== null && !hasSlashInRate ? ` (${p.current}/${p.total})` : ""}${p.rate ? ` · ${escHtml(p.rate)}` : ""}`
+                : t.is_running
+                ? `日志距今 ${fmtDuration(t.log_idle_sec)} 刷新`
+                : "100% (完毕)";
+              const isOpen = openDetailsSet.has(t.task_id) || (t.is_running && !t.is_daemon) ? "open" : "";
+              const logHtml =
+                t.log_tail && t.log_tail.length > 0
+                  ? `<details data-tid="${escHtml(t.task_id)}" ${isOpen}>
+                       <summary>查看实时终端输出尾部 (${t.log_tail.length} 行 · ${(t.log_bytes / 1024).toFixed(1)} KB)</summary>
+                       <div class="log-box mono">${escHtml(t.log_tail.join("\n"))}</div>
+                     </details>`
+                  : "";
+
+              return `
+                <div class="task-item ${t.is_running ? "running" : ""}" data-running="${t.is_running ? "1" : "0"}" data-elapsed="${t.elapsed_sec}" data-eta="${t.eta_sec ?? ""}" data-finish="${t.eta_finish_ts ?? ""}">
+                  <div class="task-top">
+                    <div class="task-name">
+                      <span class="${pillCls}">${escHtml(t.status_cn)}</span>
+                      <span>${escHtml(t.title)}</span>
+                      <span class="mono" style="font-size:12px; color:var(--muted);">(${escHtml(t.task_id)})</span>
+                    </div>
+                    <span style="font-size:12px; color:var(--muted);">启动于 ${fmtTimeOfDay(t.start_ts)} · ${escHtml(t.eta_note || "")}</span>
+                  </div>
+                  <div class="task-cmd mono" title="${escHtml(t.command)}">${escHtml(t.command)}</div>
+                  <div class="task-metrics">
+                    <div class="tm-box">
+                      <div class="tm-lbl">已运行时间</div>
+                      <div class="tm-val mono js-elapsed">${fmtDuration(t.elapsed_sec)}</div>
+                    </div>
+                    <div class="tm-box">
+                      <div class="tm-lbl">预计剩余时间 (ETA)</div>
+                      <div class="tm-val mono js-eta" style="color:var(--accent);">${escHtml(etaStr)}</div>
+                    </div>
+                    <div class="tm-box">
+                      <div class="tm-lbl">识别进度 / 吞吐速度</div>
+                      <div class="tm-val mono" style="font-size:15px;">${progStr}</div>
+                    </div>
+                    <div class="tm-box">
+                      <div class="tm-lbl">日志活跃状态</div>
+                      <div class="tm-val mono" style="font-size:15px;">${t.log_bytes > 0 ? (t.is_running ? `活跃 (${fmtDuration(t.log_idle_sec)}前更新)` : "已归档") : "等待首批输出"}</div>
+                    </div>
+                  </div>
+                  <div class="bar-wrap" style="height:9px;">
+                    <div class="${barCls}" style="width:${hasPct ? pctVal : 100}%"></div>
+                  </div>
+                  ${logHtml}
+                </div>`;
+            })
+            .join("");
+
+          document.querySelectorAll("#bgTaskList details[data-tid]").forEach((el) => {
+            el.addEventListener("toggle", () => {
+              const tid = el.getAttribute("data-tid");
+              if (el.open) openDetailsSet.add(tid);
+              else openDetailsSet.delete(tid);
+            });
+          });
+        }
+
+        // 子智能体渲染
+        if (d.subagents && d.subagents.length > 0) {
+          $("subSection").style.display = "block";
+          $("subCountBadge").textContent = `${d.subagents.length} 个子智能体`;
+          $("subList").innerHTML = d.subagents
+            .map(
+              (s) => `
+              <div class="task-item ${s.is_running ? "running" : ""}">
+                <div class="task-top">
+                  <div class="task-name">
+                    <span class="${s.is_running ? "pill pill-run" : "pill pill-ok"}">${escHtml(s.state)}</span>
+                    <span>${escHtml(s.role)}</span>
+                    <span class="mono" style="font-size:12px; color:var(--muted);">[${escHtml(s.type_name)} · ${escHtml(s.short_id)}]</span>
+                  </div>
+                  <span class="mono" style="font-size:12.5px; color:var(--muted);">耗时 ${fmtDuration(s.elapsed_sec)} · ${s.steps} 步 · 上下文 ${fmtK(s.context_tokens)} · 最新动作: ${escHtml(s.last_action)}</span>
+                </div>
+              </div>`
+            )
+            .join("");
+        } else {
+          $("subSection").style.display = "none";
+        }
+
+        // 双趋势图与时间轴表
+        renderSparkArea(
+          "ctxChart",
+          d.series,
+          (x) => x.context_tokens,
+          (x) => x.cache_tokens,
+          "Tokens"
+        );
+        renderSparkArea(
+          "spdChart",
+          d.series.filter((x) => x.tok_per_sec !== null),
+          (x) => x.tok_per_sec,
+          null,
+          "tok/s"
+        );
+        $("ctxChartSummary").textContent = `峰值 ${fmtK(Math.max(0, ...d.series.map((x) => x.context_tokens || 0)))}`;
+        $("spdChartSummary").textContent = d.speed.peak_tok_per_sec ? `峰值 ${d.speed.peak_tok_per_sec} tok/s` : "";
+
+        const rows = [...(d.timeline || [])].reverse();
+        const kindBadge = {
+          user: ["用户提问", "pill pill-idle"],
+          model: ["模型推理", "pill pill-run"],
+          tool: ["工具执行", "pill pill-ok"],
+          bg_start: ["后台启动", "pill pill-warn"],
+          bg_done: ["后台完成", "pill pill-ok"],
+        };
+        $("timelineBody").innerHTML = rows
+          .map((r) => {
+            const [kl, kc] = kindBadge[r.kind] || [r.label, "pill pill-idle"];
+            return `
+              <tr>
+                <td class="mono" style="color:var(--muted);">#${r.step_index}</td>
+                <td class="mono">${fmtTimeOfDay(r.created_ts)}</td>
+                <td><span class="${kc}">${escHtml(kl)}</span></td>
+                <td style="max-width:520px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escHtml(r.summary)}">${escHtml(r.summary)}</td>
+                <td class="mono">${r.duration_sec !== null && r.duration_sec !== undefined ? r.duration_sec + "s" : "--"}</td>
+                <td class="mono">${r.context_tokens ? fmtK(r.context_tokens) : "--"}</td>
+                <td class="mono">${r.output_tokens ? fmtInt(r.output_tokens) : "--"}</td>
+                <td class="mono" style="color:var(--accent);">${r.tok_per_sec ? r.tok_per_sec + " t/s" : "--"}</td>
+              </tr>`;
+          })
+          .join("");
+      } else {
+        // 每秒轻量平滑刷新运行中后台任务的秒表
+        document.querySelectorAll('#bgTaskList .task-item[data-running="1"]').forEach((el) => {
+          const baseEl = parseFloat(el.getAttribute("data-elapsed") || "0");
+          const elNode = el.querySelector(".js-elapsed");
+          if (elNode) elNode.textContent = fmtDuration(baseEl + extraSec);
+          const rawEta = el.getAttribute("data-eta");
+          const rawFin = el.getAttribute("data-finish");
+          if (rawEta !== "") {
+            const rem = Math.max(0, parseFloat(rawEta) - extraSec);
+            const etaNode = el.querySelector(".js-eta");
+            const finSuffix = rawFin ? ` (约 ${fmtTimeOfDay(parseFloat(rawFin))})` : "";
+            if (etaNode) etaNode.textContent = `${fmtDuration(rem)}${finSuffix}`;
+          }
+        });
+      }
+    }
+
+    async function fetchOverview() {
+      try {
+        const url = `/api/overview?auto=${autoFollow ? "1" : "0"}&conv=${encodeURIComponent(selectedConvId)}`;
+        const resp = await fetch(url, { cache: "no-store" });
+        const data = await resp.json();
+        const convs = data.conversations || [];
+        const activeId = data.active_conversation_id || "";
+
+        const sel = $("convSelect");
+        const prevHtml = sel.getAttribute("data-sig") || "";
+        const nextSig = convs.map((c) => `${c.id}:${c.title}:${c.is_running ? 1 : 0}:${c.step_count}`).join("|") + "::" + activeId;
+        if (prevHtml !== nextSig) {
+          sel.innerHTML = convs
+            .map((c) => {
+              const mb = (c.transcript_bytes / (1024 * 1024)).toFixed(2);
+              const selAttr = c.id === activeId ? "selected" : "";
+              const runDot = c.is_running ? "● " : "";
+              return `<option value="${c.id}" ${selAttr}>${runDot}${escHtml(c.title)} (${c.step_count}步 · ${mb}MB)</option>`;
+            })
+            .join("");
+          sel.setAttribute("data-sig", nextSig);
+        }
+        selectedConvId = activeId;
+        lastSnapshot = data.detail;
+        lastFetchClientMs = Date.now();
+        $("syncClock").textContent = "实时同步: " + new Date().toLocaleTimeString("zh-CN", { hour12: false });
+        renderDetail(lastSnapshot, 0);
+      } catch (e) {
+        $("convSubtitle").textContent = "等待本地监控服务响应...";
+      }
+    }
+
+    // 1.5 秒拉取一次后端增量状态 + 每 0.5 秒平滑刷新前端秒表
+    fetchOverview();
+    setInterval(fetchOverview, 1500);
+    setInterval(() => {
+      if (lastSnapshot) {
+        const extraSec = (Date.now() - lastFetchClientMs) / 1000.0;
+        renderDetail(lastSnapshot, extraSec);
+      }
+    }, 500);
+  </script>
+</body>
+</html>

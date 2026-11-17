@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "ag-monitor-daemon": {
+      "command": "cmd.exe",
+      "args": [
+        "/d",
+        "/c",
+        "run_mcp.cmd",
+        "--mcp",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8765"
+      ]
+    }
+  }
+}
